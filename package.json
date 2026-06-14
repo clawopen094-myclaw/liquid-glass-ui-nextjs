@@ -1,0 +1,40 @@
+{
+  "name": "liquid-glass",
+  "version": "1.0.0",
+  "description": "Apple Liquid Glass effects as Web Components — zero-config Next.js/React library",
+  "type": "module",
+  "license": "MIT",
+  "main": "./index.ts",
+  "types": "./types.d.ts",
+  "exports": {
+    ".": {
+      "import": "./index.ts",
+      "types": "./types.d.ts"
+    },
+    "./react": {
+      "import": "./react.js",
+      "types": "./types.d.ts"
+    },
+    "./dist/styles.css": "./dist/styles.css",
+    "./dist/*": "./dist/*",
+    "./src/core/*": "./src/core/*"
+  },
+  "files": [
+    "index.ts",
+    "react.js",
+    "types.d.ts",
+    "src/",
+    "dist/"
+  ],
+  "keywords": ["glass", "webgl", "apple", "vision-pro", "ui", "nextjs", "react", "web-components"],
+  "peerDependencies": {
+    "next": ">=13.0.0",
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "next": { "optional": true },
+    "react": { "optional": true },
+    "react-dom": { "optional": true }
+  }
+}
