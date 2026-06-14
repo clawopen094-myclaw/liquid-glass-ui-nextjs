@@ -1,27 +1,35 @@
 'use client'
 // ┌───────────────────────────────────────────────┐
 // │  Liquid Glass — <GlassButton> for Next.js     │
-// │  SSR-safe. Auto-detects nested glass.         │
 // └───────────────────────────────────────────────┘
 
 import { useRef, useEffect } from 'react'
 
-let _loading = false
-let _ready = false
+// Shared init is in GlassContainer — both share the same _initState
+let _initState = 'idle'
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script')
+    s.src = src; s.onload = resolve; s.onerror = () => reject(new Error(src))
+    document.head.appendChild(s)
+  })
+}
 
 function ensureCEs() {
   if (typeof window === 'undefined') return
-  if (_ready || _loading) return
-  _loading = true
-  if (!window.html2canvas) {
-    const s = document.createElement('script')
-    s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'
-    s.async = true
-    document.head.appendChild(s)
-  }
-  import('liquid-glass/src/core/index.js').catch(() =>
-    import('../core/index.js')
-  ).then(() => { _ready = true }).catch(console.warn)
+  if (_initState === 'ready') return
+  if (_initState !== 'idle') return
+  _initState = 'loading_h2c'
+  const h2cReady = window.html2canvas
+    ? Promise.resolve()
+    : loadScript('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js')
+  h2cReady.then(() => {
+    _initState = 'loading_ce'
+    import('liquid-glass/src/core/index.js').catch(() =>
+      import('../core/index.js')
+    ).then(() => { _initState = 'ready' }).catch(console.warn)
+  }).catch(err => { console.warn('Liquid Glass: init failed', err); _initState = 'idle' })
 }
 
 function setAttr(el, name, value) {
@@ -30,14 +38,8 @@ function setAttr(el, name, value) {
 }
 
 export function GlassButton({
-  text = 'Button',
-  size = 48,
-  type = 'rounded',
-  tintOpacity = 0.2,
-  warp = false,
-  onClick,
-  style,
-  className,
+  text = 'Button', size = 48, type = 'rounded', tintOpacity = 0.2, warp = false,
+  onClick, style, className,
 }) {
   const ref = useRef(null)
 
@@ -59,12 +61,7 @@ export function GlassButton({
   }, [onClick])
 
   return (
-    <glass-button
-      ref={ref}
-      className={className}
-      style={style}
-      suppressHydrationWarning
-    />
+    <glass-button ref={ref} className={className} style={style} suppressHydrationWarning />
   )
 }
 

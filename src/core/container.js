@@ -129,26 +129,32 @@ export class GlassContainer extends HTMLElement {
       `border-radius:${this.borderRadius}px;box-shadow:0 25px 50px rgba(0,0,0,0.25);z-index:-1`
     this.prepend(this.canvas)
 
-    this.gl = this.canvas.getContext('webgl', { preserveDrawingBuffer: true })
-    if (!this.gl) return
+    // Poll for html2canvas (CDN loads async).  Only create GL context once ready.
+    const tryBoot = () => {
+      if (typeof html2canvas === 'undefined') {
+        setTimeout(tryBoot, 100)
+        return
+      }
+      this.gl = this.canvas.getContext('webgl', { preserveDrawingBuffer: true })
+      if (!this.gl) return
 
-    // Context loss recovery
-    this.canvas.addEventListener('webglcontextlost', () => { this.webglReady = false })
-    this.canvas.addEventListener('webglcontextrestored', () => {
-      if (GlassContainer.pageSnapshot) this._initWebGL(new Image())
-    })
+      this.canvas.addEventListener('webglcontextlost', () => { this.webglReady = false })
+      this.canvas.addEventListener('webglcontextrestored', () => {
+        if (GlassContainer.pageSnapshot) this._initWebGL(GlassContainer.pageSnapshot)
+      })
 
-    requestAnimationFrame(() => this._updateSize())
+      requestAnimationFrame(() => this._updateSize())
 
-    // Shared snapshot
-    if (GlassContainer.pageSnapshot) {
-      this._initWebGL(null)
-    } else if (GlassContainer.isCapturing) {
-      GlassContainer.waitingForSnapshot.push(this)
-    } else {
-      GlassContainer.waitingForSnapshot.push(this)
-      GlassContainer.capturePage()
+      if (GlassContainer.pageSnapshot) {
+        this._initWebGL(GlassContainer.pageSnapshot)
+      } else if (GlassContainer.isCapturing) {
+        GlassContainer.waitingForSnapshot.push(this)
+      } else {
+        GlassContainer.waitingForSnapshot.push(this)
+        GlassContainer.capturePage()
+      }
     }
+    tryBoot()
   }
 
   _updateSize() {
@@ -192,7 +198,6 @@ export class GlassContainer extends HTMLElement {
     if (GlassContainer.isCapturing) return
     GlassContainer.isCapturing = true
     GlassContainer.pageSnapshot = null
-    if (refresh) GlassContainer.waitingForSnapshot = [...GlassContainer.instances]
 
     html2canvas(document.body, {
       scale: 1,
@@ -207,52 +212,38 @@ export class GlassContainer extends HTMLElement {
     }).then(snap => {
       GlassContainer.pageSnapshot = snap
       GlassContainer.isCapturing = false
-      const img = new Image()
-      img.src = snap.toDataURL()
-      img.onload = () => {
-        const q = GlassContainer.waitingForSnapshot.splice(0)
-        // Also catch any pushed mid-capture (fixes race)
-        const extra = GlassContainer.waitingForSnapshot.splice(0)
-        for (const c of [...q, ...extra]) {
-          c.webglReady ? c._updateWebGL(img) : c._initWebGL(img)
-          if (c._render) c._render()
-        }
+      // Pass canvas directly — no toDataURL() (tainted canvas from cross-origin images)
+      const q = GlassContainer.waitingForSnapshot.splice(0)
+      const extra = GlassContainer.waitingForSnapshot.splice(0)
+      for (const c of [...q, ...extra]) {
+        c.webglReady ? c._updateWebGL(snap) : c._initWebGL(snap)
+        if (c._render) c._render()
       }
     }).catch(err => {
       console.error('Liquid Glass: snapshot failed', err)
       GlassContainer.isCapturing = false
-      if (!GlassContainer._retried) {
-        GlassContainer._retried = true
-        setTimeout(() => { GlassContainer._retried = false; GlassContainer.capturePage(refresh) }, 1000)
-      } else {
-        GlassContainer.waitingForSnapshot = []
-      }
+      GlassContainer.waitingForSnapshot = []
     })
   }
 
   // ── WebGL ──
 
-  _initWebGL(img) {
-    if (img && GlassContainer.pageSnapshot) {
-      img.src = GlassContainer.pageSnapshot.toDataURL()
-      img.onload = () => this._setupShader(img)
-    } else if (!img && GlassContainer.pageSnapshot) {
-      const i = new Image()
-      i.src = GlassContainer.pageSnapshot.toDataURL()
-      i.onload = () => this._setupShader(i)
-    }
+  _initWebGL(snapCanvas) {
+    if (!snapCanvas) { console.warn('LG: _initWebGL missing snapCanvas'); return }
+    if (!this.gl) { console.warn('LG: _initWebGL missing gl'); return }
+    this._setupShader(snapCanvas)
   }
 
-  _updateWebGL(img) {
+  _updateWebGL(snapCanvas) {
     const gl = this.glRefs.gl
-    if (!gl || !this.glRefs.texture) return
+    if (!gl || !this.glRefs.texture || !snapCanvas) return
     gl.bindTexture(gl.TEXTURE_2D, this.glRefs.texture)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
-    gl.uniform2f(this.glRefs.texSizeLoc, img.width, img.height)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, snapCanvas)
+    gl.uniform2f(this.glRefs.texSizeLoc, snapCanvas.width, snapCanvas.height)
   }
 
-  _setupShader(img) {
-    if (!this.gl || !this.canvas || !img) return
+  _setupShader(snapCanvas) {
+    if (!this.gl || !this.canvas || !snapCanvas) return
     const gl = this.gl
     const { vsSource, fsSource } = buildContainerShader()
     const prog = this._mkProgram(gl, vsSource, fsSource)
@@ -286,7 +277,7 @@ export class GlassContainer extends HTMLElement {
     const R = this.glRefs
 
     gl.bindTexture(gl.TEXTURE_2D, R.texture)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, snapCanvas)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
@@ -304,7 +295,7 @@ export class GlassContainer extends HTMLElement {
 
     const gc = window.__glassControls || {}
     gl.uniform2f(R.resLoc, this.canvas.width, this.canvas.height)
-    gl.uniform2f(R.texSizeLoc, img.width, img.height)
+    gl.uniform2f(R.texSizeLoc, snapCanvas.width, snapCanvas.height)
     gl.uniform1f(R.blurLoc, gc.blurRadius ?? 5)
     gl.uniform1f(R.rLoc, this.borderRadius)
     gl.uniform1f(R.warpLoc, this.warp ? 1 : 0)

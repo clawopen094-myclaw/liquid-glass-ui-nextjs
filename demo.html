@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Liquid Glass Demo</title>
+  <link rel="stylesheet" href="dist/styles.css" />
+  <style>
+    body {
+      margin: 0; padding: 40px; min-height: 100vh;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: system-ui, sans-serif; color: white;
+    }
+    h2 { margin: 32px 0 16px; }
+    .row { display: flex; gap: 24px; align-items: center; margin-bottom: 24px; }
+  </style>
+</head>
+<body>
+
+  <h1>Liquid Glass</h1>
+  <p style="opacity:0.7">WebGL glass effects — standalone demo</p>
+
+  <h2>Standalone Buttons</h2>
+  <div class="row">
+    <glass-button text="Rounded" size="24" type="rounded"></glass-button>
+    <glass-button text="Pill" size="24" type="pill" tint-opacity="0.4"></glass-button>
+    <glass-button text="OK" size="24" type="circle"></glass-button>
+  </div>
+
+  <h2>Container + Nested Glass</h2>
+  <glass-container type="rounded" border-radius="24" tint-opacity="0.25">
+    <glass-button text="Save" size="22" type="pill"></glass-button>
+    <glass-button text="Cancel" size="22" type="pill"></glass-button>
+    <glass-button text="+" size="22" type="circle"></glass-button>
+  </glass-container>
+
+  <div style="height:24px"></div>
+
+  <glass-container type="pill" border-radius="32" tint-opacity="0.35">
+    <glass-button text="Home" size="18" type="pill"></glass-button>
+    <glass-button text="About" size="18" type="pill"></glass-button>
+    <glass-button text="Contact" size="18" type="pill"></glass-button>
+  </glass-container>
+
+  <h2>tintOpacity: 10% → 80%</h2>
+  <div class="row">
+    <glass-button text="10%" type="rounded" size="20" tint-opacity="0.1"></glass-button>
+    <glass-button text="30%" type="rounded" size="20" tint-opacity="0.3"></glass-button>
+    <glass-button text="50%" type="rounded" size="20" tint-opacity="0.5"></glass-button>
+    <glass-button text="80%" type="rounded" size="20" tint-opacity="0.8"></glass-button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script type="module" src="src/core/index.js"></script>
+</body>
+</html>

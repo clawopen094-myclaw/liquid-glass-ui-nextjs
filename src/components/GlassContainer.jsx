@@ -1,55 +1,44 @@
 'use client'
-// ┌───────────────────────────────────────────────┐
-// │  Liquid Glass — <GlassContainer> for Next.js  │
-// │  SSR-safe. Loads custom elements on mount.    │
-// └───────────────────────────────────────────────┘
-
 import { useRef, useEffect, useCallback } from 'react'
 
-// ── lazy-load custom elements (browser-only) ──
-let _loading = false
-let _ready = false
+function getState() { return window.__lgInitState || 'idle' }
+function setState(s) { window.__lgInitState = s }
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (typeof document === 'undefined') return reject(new Error('SSR'))
+    const s = document.createElement('script')
+    s.src = src; s.onload = resolve; s.onerror = () => reject(new Error(src))
+    document.head.appendChild(s)
+  })
+}
 
 function ensureCEs() {
   if (typeof window === 'undefined') return
-  if (_ready || _loading) return
-  _loading = true
-
-  // 1. html2canvas global
-  if (!window.html2canvas) {
-    const s = document.createElement('script')
-    s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'
-    s.async = true
-    document.head.appendChild(s)
-  }
-
-  // 2. Import CEs (side-effect: registers <glass-container> + <glass-button>)
-  import('liquid-glass/src/core/index.js').catch(() =>
-    import('../core/index.js')
-  ).then(() => { _ready = true }).catch(console.warn)
+  if (getState() !== 'idle') return
+  setState('loading_h2c')
+  const h2cReady = window.html2canvas
+    ? Promise.resolve()
+    : loadScript('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js')
+  h2cReady.then(() => {
+    setState('loading_ce')
+    import('liquid-glass/src/core/index.js').catch(() =>
+      import('../core/index.js')
+    ).then(() => { setState('ready') }).catch(console.warn)
+  }).catch(err => { console.warn('Liquid Glass: init failed', err); setState('idle') })
 }
 
-// ── helpers ──
 function setAttr(el, name, value) {
   if (value === undefined || value === null || value === false) el.removeAttribute(name)
   else el.setAttribute(name, String(value))
 }
 
-// ── component ──
 export function GlassContainer({
-  type = 'rounded',
-  borderRadius = 48,
-  tintOpacity = 0.2,
-  warp = false,
-  style,
-  className,
-  children,
-  onRef,
+  type = 'rounded', borderRadius = 48, tintOpacity = 0.2, warp = false,
+  style, className, children, onRef,
 }) {
   const ref = useRef(null)
-
   useEffect(() => { ensureCEs() }, [])
-
   useEffect(() => {
     const el = ref.current
     if (!el) return
@@ -58,19 +47,11 @@ export function GlassContainer({
     setAttr(el, 'tint-opacity', tintOpacity)
     setAttr(el, 'warp', warp || undefined)
   }, [type, borderRadius, tintOpacity, warp])
-
   const mergedRef = useCallback((node) => { ref.current = node; if (onRef) onRef(node) }, [onRef])
-
   return (
-    <glass-container
-      ref={mergedRef}
-      className={className}
-      style={style}
-      suppressHydrationWarning
-    >
+    <glass-container ref={mergedRef} className={className} style={style} suppressHydrationWarning>
       {children}
     </glass-container>
   )
 }
-
 GlassContainer.displayName = 'GlassContainer'
