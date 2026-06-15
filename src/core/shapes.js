@@ -90,6 +90,10 @@ export function buildContainerShader() {
     uniform float u_cornerBoost;
     uniform float u_rippleEffect;
     uniform float u_tintOpacity;
+    uniform float u_specularWidth;
+    uniform float u_specularIntensity;
+    uniform float u_chromaticStrength;
+    uniform float u_envLightIntensity;
     varying vec2 v_texcoord;
 
     ${ROUNDED_RECT_GLSL}
@@ -117,8 +121,7 @@ export function buildContainerShader() {
         vec2 capsuleStart = vec2(u_borderRadius, center.y * u_resolution.y);
         vec2 capsuleEnd = vec2(u_resolution.x - u_borderRadius, center.y * u_resolution.y);
         vec2 capsuleAxis = capsuleEnd - capsuleStart;
-        float capsuleLength = length(capsuleAxis);
-        if (capsuleLength > 0.0) {
+        if (length(capsuleAxis) > 0.0) {
           vec2 toPoint = pixelCoord - capsuleStart;
           float t = clamp(dot(toPoint, capsuleAxis) / dot(capsuleAxis, capsuleAxis), 0.0, 1.0);
           vec2 closestPointOnAxis = capsuleStart + t * capsuleAxis;
@@ -160,7 +163,10 @@ export function buildContainerShader() {
       vec2 cornerRefraction = shapeNormal * cornerBoost;
 
       vec2 perpendicular = vec2(-shapeNormal.y, shapeNormal.x);
-      float rippleEffect = sin(distFromEdge * 25.0) * u_rippleEffect * rimIntensity;
+      float organicRipple = sin(distFromEdge * 25.0 + coord.x * 8.0) * 0.6 +
+                            sin(distFromEdge * 55.0 - coord.y * 12.0) * 0.25 +
+                            sin(distFromEdge * 80.0) * 0.15;
+      float rippleEffect = organicRipple * u_rippleEffect * rimIntensity;
       vec2 textureRefraction = perpendicular * rippleEffect;
       vec2 totalRefraction = baseRefraction + cornerRefraction + textureRefraction;
       textureCoord += totalRefraction;
@@ -181,6 +187,16 @@ export function buildContainerShader() {
         }
       }
       color /= totalWeight;
+
+      // ── chromatic aberration — RGB separation at edges ──
+      float caEdge = edgeIntensity * u_chromaticStrength;
+      if (caEdge > 0.001) {
+        vec2 caDir = shapeNormal * 4.0 * texelSize;
+        float rOff = texture2D(u_image, textureCoord + caDir).r;
+        float bOff = texture2D(u_image, textureCoord - caDir).b;
+        color.r = mix(color.r, rOff, caEdge * 0.4);
+        color.b = mix(color.b, bOff, caEdge * 0.4);
+      }
 
       float gradientPosition = coord.y;
       vec3 topTint = vec3(1.0, 1.0, 1.0);
@@ -229,6 +245,18 @@ export function buildContainerShader() {
       vec3 finalTinted = mix(color.rgb, sampledGradient, u_tintOpacity * 0.3);
       color = vec4(finalTinted, color.a);
 
+      // ── specular edge highlight — bright ring at glass boundary ──
+      float specular = exp(-normalizedDistance * u_specularWidth) * u_specularIntensity;
+      color.rgb += specular * 0.35;
+
+      // ── inner shadow — darker edges with light pooling in center ──
+      float innerShadow = 1.0 - 0.12 * exp(-normalizedDistance * 0.06);
+      color.rgb *= innerShadow;
+
+      // ── environmental top-light reflection ──
+      float envLight = smoothstep(1.0, 0.65, coord.y) * u_envLightIntensity;
+      color.rgb += envLight * 0.2;
+
       float maskDistance;
       if (isPill(u_resolution, u_borderRadius)) {
         maskDistance = pillDistance(coord, u_resolution, u_borderRadius);
@@ -237,7 +265,7 @@ export function buildContainerShader() {
       } else {
         maskDistance = roundedRectDistance(coord, u_resolution, u_borderRadius);
       }
-      float mask = 1.0 - smoothstep(-1.0, 1.0, maskDistance);
+      float mask = 1.0 - smoothstep(-0.5, 0.5, maskDistance);
       gl_FragColor = vec4(color.rgb, mask);
     }
   `
@@ -276,6 +304,10 @@ export function buildNestedShader() {
     uniform float u_cornerBoost;
     uniform float u_rippleEffect;
     uniform float u_tintOpacity;
+    uniform float u_specularWidth;
+    uniform float u_specularIntensity;
+    uniform float u_chromaticStrength;
+    uniform float u_envLightIntensity;
     varying vec2 v_texcoord;
 
     ${ROUNDED_RECT_GLSL}
@@ -303,8 +335,7 @@ export function buildNestedShader() {
         vec2 capsuleStart = vec2(u_borderRadius, center.y * u_resolution.y);
         vec2 capsuleEnd = vec2(u_resolution.x - u_borderRadius, center.y * u_resolution.y);
         vec2 capsuleAxis = capsuleEnd - capsuleStart;
-        float capsuleLength = length(capsuleAxis);
-        if (capsuleLength > 0.0) {
+        if (length(capsuleAxis) > 0.0) {
           vec2 toPoint = pixelCoord - capsuleStart;
           float t = clamp(dot(toPoint, capsuleAxis) / dot(capsuleAxis, capsuleAxis), 0.0, 1.0);
           vec2 closestPointOnAxis = capsuleStart + t * capsuleAxis;
@@ -345,7 +376,10 @@ export function buildNestedShader() {
       vec2 cornerRefraction = shapeNormal * cornerBoost;
 
       vec2 perpendicular = vec2(-shapeNormal.y, shapeNormal.x);
-      float rippleEffect = sin(distFromEdge * 30.0) * u_rippleEffect * rimIntensity;
+      float organicRipple = sin(distFromEdge * 30.0 + coord.x * 10.0) * 0.5 +
+                            sin(distFromEdge * 60.0 - coord.y * 14.0) * 0.3 +
+                            sin(distFromEdge * 90.0) * 0.2;
+      float rippleEffect = organicRipple * u_rippleEffect * rimIntensity;
       vec2 textureRefraction = perpendicular * rippleEffect;
       vec2 totalRefraction = baseRefraction + cornerRefraction + textureRefraction;
       vec2 textureCoord = baseTextureCoord + totalRefraction;
@@ -366,6 +400,16 @@ export function buildNestedShader() {
         }
       }
       color /= totalWeight;
+
+      // ── chromatic aberration — RGB separation at edges ──
+      float caEdge = edgeIntensity * u_chromaticStrength;
+      if (caEdge > 0.001) {
+        vec2 caDir = shapeNormal * 3.0 * texelSize;
+        float rOff = texture2D(u_image, textureCoord + caDir).r;
+        float bOff = texture2D(u_image, textureCoord - caDir).b;
+        color.r = mix(color.r, rOff, caEdge * 0.35);
+        color.b = mix(color.b, bOff, caEdge * 0.35);
+      }
 
       float gradientPosition = coord.y;
       vec3 topTint = vec3(1.0, 1.0, 1.0);
@@ -402,6 +446,19 @@ export function buildNestedShader() {
       vec3 buttonBottomTint = vec3(0.92, 0.92, 0.92);
       vec3 buttonGradient = mix(buttonTopTint, buttonBottomTint, gradientPosition);
       vec3 finalTinted = secondTinted * buttonGradient;
+      color = vec4(finalTinted, color.a);
+
+      // ── specular edge highlight — bright ring at glass boundary ──
+      float specular = exp(-normalizedDistance * u_specularWidth) * u_specularIntensity;
+      color.rgb += specular * 0.35;
+
+      // ── inner shadow — darker edges with light pooling in center ──
+      float innerShadow = 1.0 - 0.12 * exp(-normalizedDistance * 0.06);
+      color.rgb *= innerShadow;
+
+      // ── environmental top-light reflection ──
+      float envLight = smoothstep(1.0, 0.65, coord.y) * u_envLightIntensity;
+      color.rgb += envLight * 0.2;
 
       float maskDistance;
       if (isPill(u_resolution, u_borderRadius)) {
@@ -411,8 +468,8 @@ export function buildNestedShader() {
       } else {
         maskDistance = roundedRectDistance(coord, u_resolution, u_borderRadius);
       }
-      float mask = 1.0 - smoothstep(-1.0, 1.0, maskDistance);
-      gl_FragColor = vec4(finalTinted, mask);
+      float mask = 1.0 - smoothstep(-0.5, 0.5, maskDistance);
+      gl_FragColor = vec4(color.rgb, mask);
     }
   `
 
