@@ -163,7 +163,9 @@ export class GlassButton extends GlassContainer {
       btnPosLoc: L('u_buttonPosition'), conPosLoc: L('u_containerPosition'), conSizeLoc: L('u_containerSize'),
       warpLoc: L('u_warp'), eiLoc: L('u_edgeIntensity'), riLoc: L('u_rimIntensity'), biLoc: L('u_baseIntensity'),
       edLoc: L('u_edgeDistance'), rdLoc: L('u_rimDistance'), bdLoc: L('u_baseDistance'),
-      cbLoc: L('u_cornerBoost'), rpLoc: L('u_rippleEffect'), tintLoc: L('u_tintOpacity'), imgLoc: L('u_image'),
+      cbLoc: L('u_cornerBoost'), rpLoc: L('u_rippleEffect'), tintLoc: L('u_tintOpacity'),
+      swLoc: L('u_specularWidth'), siLoc: L('u_specularIntensity'),
+      caLoc: L('u_chromaticStrength'), elLoc: L('u_envLightIntensity'), imgLoc: L('u_image'),
     }
     this.glRefs = refs
 
@@ -186,15 +188,19 @@ export class GlassButton extends GlassContainer {
     gl.uniform1f(refs.blurLoc, gc.blurRadius ?? 2)
     gl.uniform1f(refs.rLoc, this.borderRadius)
     gl.uniform1f(refs.warpLoc, this.warp ? 1 : 0)
-    gl.uniform1f(refs.eiLoc, gc.edgeIntensity ?? 0.01)
-    gl.uniform1f(refs.riLoc, gc.rimIntensity ?? 0.05)
+    gl.uniform1f(refs.eiLoc, gc.edgeIntensity ?? 0.08)
+    gl.uniform1f(refs.riLoc, gc.rimIntensity ?? 0.12)
     gl.uniform1f(refs.biLoc, gc.baseIntensity ?? 0.01)
     gl.uniform1f(refs.edLoc, gc.edgeDistance ?? 0.15)
     gl.uniform1f(refs.rdLoc, gc.rimDistance ?? 0.8)
     gl.uniform1f(refs.bdLoc, gc.baseDistance ?? 0.1)
     gl.uniform1f(refs.cbLoc, gc.cornerBoost ?? 0.02)
-    gl.uniform1f(refs.rpLoc, gc.rippleEffect ?? 0.1)
+    gl.uniform1f(refs.rpLoc, gc.rippleEffect ?? 0.25)
     gl.uniform1f(refs.tintLoc, this.tintOpacity)
+    gl.uniform1f(refs.swLoc, gc.specularWidth ?? 0.08)
+    gl.uniform1f(refs.siLoc, gc.specularIntensity ?? 0.6)
+    gl.uniform1f(refs.caLoc, gc.chromaticStrength ?? 0.5)
+    gl.uniform1f(refs.elLoc, gc.envLightIntensity ?? 0.15)
 
     if (this._parentCE) {
       const bp = this.getCenter(), cp = this._parentCE.getCenter()

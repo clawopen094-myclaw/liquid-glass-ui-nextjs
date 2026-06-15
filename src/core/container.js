@@ -272,6 +272,8 @@ export class GlassContainer extends HTMLElement {
       eiLoc: L('u_edgeIntensity'), riLoc: L('u_rimIntensity'), biLoc: L('u_baseIntensity'),
       edLoc: L('u_edgeDistance'), rdLoc: L('u_rimDistance'), bdLoc: L('u_baseDistance'),
       cbLoc: L('u_cornerBoost'), rpLoc: L('u_rippleEffect'), tintLoc: L('u_tintOpacity'),
+      swLoc: L('u_specularWidth'), siLoc: L('u_specularIntensity'),
+      caLoc: L('u_chromaticStrength'), elLoc: L('u_envLightIntensity'),
       imgLoc: L('u_image'),
     }
     const R = this.glRefs
@@ -296,18 +298,22 @@ export class GlassContainer extends HTMLElement {
     const gc = window.__glassControls || {}
     gl.uniform2f(R.resLoc, this.canvas.width, this.canvas.height)
     gl.uniform2f(R.texSizeLoc, snapCanvas.width, snapCanvas.height)
-    gl.uniform1f(R.blurLoc, gc.blurRadius ?? 5)
+    gl.uniform1f(R.blurLoc, gc.blurRadius ?? 2)
     gl.uniform1f(R.rLoc, this.borderRadius)
     gl.uniform1f(R.warpLoc, this.warp ? 1 : 0)
-    gl.uniform1f(R.eiLoc, gc.edgeIntensity ?? 0.01)
-    gl.uniform1f(R.riLoc, gc.rimIntensity ?? 0.05)
+    gl.uniform1f(R.eiLoc, gc.edgeIntensity ?? 0.08)
+    gl.uniform1f(R.riLoc, gc.rimIntensity ?? 0.12)
     gl.uniform1f(R.biLoc, gc.baseIntensity ?? 0.01)
     gl.uniform1f(R.edLoc, gc.edgeDistance ?? 0.15)
     gl.uniform1f(R.rdLoc, gc.rimDistance ?? 0.8)
     gl.uniform1f(R.bdLoc, gc.baseDistance ?? 0.1)
     gl.uniform1f(R.cbLoc, gc.cornerBoost ?? 0.02)
-    gl.uniform1f(R.rpLoc, gc.rippleEffect ?? 0.1)
+    gl.uniform1f(R.rpLoc, gc.rippleEffect ?? 0.25)
     gl.uniform1f(R.tintLoc, this.tintOpacity)
+    gl.uniform1f(R.swLoc, gc.specularWidth ?? 0.08)
+    gl.uniform1f(R.siLoc, gc.specularIntensity ?? 0.6)
+    gl.uniform1f(R.caLoc, gc.chromaticStrength ?? 0.5)
+    gl.uniform1f(R.elLoc, gc.envLightIntensity ?? 0.15)
 
     const p = this.getCenter()
     gl.uniform2f(R.posCLoc, p.x, p.y)
